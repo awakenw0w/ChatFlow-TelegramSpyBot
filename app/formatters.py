@@ -1,3 +1,6 @@
+from html import escape
+
+
 NO_TEXT = "[нет текста]"
 
 
@@ -9,6 +12,10 @@ def _clean(value: object | None) -> str:
 
 def _clean_username(username: object | None) -> str:
     return _clean(username).lstrip("@")
+
+
+def _html(value: object | None) -> str:
+    return escape(_clean(value), quote=False)
 
 
 def safe_cut_text(value: object | None, limit: int = 1800) -> str:
@@ -83,12 +90,14 @@ def format_edit_notification(
     new_text = safe_cut_text(new_text_or_caption, limit=1600)
     username = _clean_username(bot_username)
     return (
-        f"{build_sender_label(sender_label)} изменил(а) сообщение:\n\n"
-        f"Старое сообщение:\n\n"
-        f"{old_text}\n\n"
-        f"Новое сообщение:\n\n"
-        f"{new_text}\n\n"
-        f"@{username}"
+        "<pre>"
+        f"{_html(build_sender_label(sender_label))} изменил(а) сообщение:\n"
+        "Старое сообщение:\n"
+        f"{_html(old_text)}\n\n"
+        "Новое сообщение:\n"
+        f"{_html(new_text)}\n\n"
+        f"@{_html(username)}"
+        "</pre>"
     )
 
 
@@ -100,7 +109,9 @@ def format_delete_notification(
     text = safe_cut_text(text_or_caption, limit=3500)
     username = _clean_username(bot_username)
     return (
-        f"{build_sender_label(sender_label)} удалил(а) сообщение:\n\n"
-        f"{text}\n\n"
-        f"@{username}"
+        "<pre>"
+        f"{_html(build_sender_label(sender_label))} удалил(а) сообщение:\n\n"
+        f"{_html(text)}\n\n"
+        f"@{_html(username)}"
+        "</pre>"
     )

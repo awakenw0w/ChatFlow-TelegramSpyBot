@@ -1,8 +1,10 @@
 import logging
+from pathlib import Path
+from html import escape
 
 from aiogram import F, Router
 from aiogram.filters import CommandStart
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, FSInputFile, Message
 
 from app.config import Config
 from app.keyboards import DEMO_CALLBACK_DATA, build_start_keyboard
@@ -10,6 +12,7 @@ from app.keyboards import DEMO_CALLBACK_DATA, build_start_keyboard
 
 logger = logging.getLogger(__name__)
 router = Router(name="start")
+START_PHOTO_PATH = Path("assets/start.jpg")
 
 
 def _start_text(bot_username: str) -> str:
@@ -28,31 +31,50 @@ def _start_text(bot_username: str) -> str:
 
 
 def _demo_text(bot_username: str) -> str:
+    username = escape(bot_username.strip().lstrip("@"), quote=False)
     return (
-        "Демонстрация работы бота.\n\n"
+        "<b>Демонстрация работы бота.</b>\n\n"
         "Собеседник изменяет сообщение — бот присылает старый и новый текст.\n\n"
         "Пример:\n"
-        "Иван (@ivan123) изменил(а) сообщение:\n\n"
-        "Старое сообщение:\n\n"
+        "<pre>"
+        "Иван (@ivan123) изменил(а) сообщение:\n"
+        "Старое сообщение:\n"
         "Привет\n\n"
-        "Новое сообщение:\n\n"
+        "Новое сообщение:\n"
         "Привет)\n\n"
-        f"@{bot_username}\n\n"
+        f"@{username}"
+        "</pre>\n\n"
         "Собеседник удаляет сообщение — бот присылает сохранённый текст "
         "удалённого сообщения.\n\n"
         "Пример:\n"
+        "<pre>"
         "Иван (@ivan123) удалил(а) сообщение:\n\n"
         "Как дела?\n\n"
-        f"@{bot_username}\n\n"
+        f"@{username}"
+        "</pre>\n\n"
         "Бот работает даже когда вы оффлайн"
     )
 
 
 @router.message(CommandStart())
 async def handle_start(message: Message, config: Config) -> None:
+    text = _start_text(config.bot_username)
+    keyboard = build_start_keyboard()
+
+    if START_PHOTO_PATH.is_file():
+        try:
+            await message.answer_photo(
+                photo=FSInputFile(START_PHOTO_PATH),
+                caption=text,
+                reply_markup=keyboard,
+            )
+            return
+        except Exception:
+            logger.exception("Failed to send start photo")
+
     await message.answer(
-        _start_text(config.bot_username),
-        reply_markup=build_start_keyboard(),
+        text,
+        reply_markup=keyboard,
     )
 
 
@@ -61,4 +83,4 @@ async def handle_demo_callback(callback: CallbackQuery, config: Config) -> None:
     await callback.answer()
     if callback.message is None:
         return
-    await callback.message.answer(_demo_text(config.bot_username))
+    await callback.message.answer(_demo_text(config.bot_username), parse_mode="HTML")
