@@ -1,10 +1,9 @@
 import logging
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 from aiogram import Bot, Router
-from aiogram.types import BusinessConnection, BusinessMessagesDeleted, FSInputFile, Message
+from aiogram.types import BusinessConnection, BusinessMessagesDeleted, Message
 
 from app.config import Config
 from app.database import Database
@@ -69,12 +68,7 @@ async def handle_business_connection(
 
 
 @router.business_message()
-async def handle_business_message(
-    message: Message,
-    bot: Bot,
-    db: Database,
-    config: Config,
-) -> None:
+async def handle_business_message(message: Message, db: Database) -> None:
     try:
         connection_id = message.business_connection_id
         if not connection_id:
@@ -96,9 +90,6 @@ async def handle_business_message(
         )
 
         await db.save_message(_message_to_db_data(message, connection_id))
-
-        if owner_user_id is not None:
-            await _try_save_reply_timer_media(message, bot, owner_user_id, config)
     except Exception:
         logger.exception("Failed to handle business_message")
 
@@ -330,112 +321,6 @@ def _get_message_type(message: Message) -> str:
     if message.sticker:
         return "sticker"
     return "unknown"
-
-
-async def _try_save_reply_timer_media(
-    message: Message,
-    bot: Bot,
-    owner_user_id: int,
-    config: Config,
-) -> None:
-    if not message.reply_to_message:
-        return
-    if not message.text and not message.caption:
-        return
-
-    reply = message.reply_to_message
-    media = _extract_photo_or_video(reply)
-    if media is None:
-        return
-
-    media_type, file_id, extension = media
-    if not file_id:
-        logger.warning(
-            "Reply media has no file_id business_connection_id=%s chat_id=%s reply_message_id=%s",
-            message.business_connection_id,
-            message.chat.id,
-            reply.message_id,
-        )
-        return
-
-    logger.info(
-        "Reply points to %s; attempting to save media business_connection_id=%s chat_id=%s reply_message_id=%s",
-        media_type,
-        message.business_connection_id,
-        message.chat.id,
-        reply.message_id,
-    )
-
-    storage_dir = config.db_path.parent / "timer_media"
-    storage_dir.mkdir(parents=True, exist_ok=True)
-    file_path = storage_dir / _build_timer_media_filename(
-        message.business_connection_id or "unknown",
-        message.chat.id,
-        reply.message_id,
-        media_type,
-        extension,
-    )
-
-    try:
-        await bot.download(file_id, destination=file_path)
-        if media_type == "photo":
-            await bot.send_photo(chat_id=owner_user_id, photo=FSInputFile(file_path))
-        elif media_type == "video":
-            await bot.send_video(chat_id=owner_user_id, video=FSInputFile(file_path))
-        logger.info(
-            "Reply media saved and sent to owner_user_id=%s path=%s",
-            owner_user_id,
-            file_path,
-        )
-    except Exception:
-        logger.exception(
-            "Failed to save or send reply media business_connection_id=%s chat_id=%s reply_message_id=%s",
-            message.business_connection_id,
-            message.chat.id,
-            reply.message_id,
-        )
-
-
-def _extract_photo_or_video(message: Message) -> tuple[str, str, str] | None:
-    if message.photo:
-        photo = max(message.photo, key=lambda item: item.file_size or 0)
-        return ("photo", photo.file_id, "jpg")
-    if message.video:
-        return ("video", message.video.file_id, _video_extension(message.video))
-    return None
-
-
-def _video_extension(video: Any) -> str:
-    file_name = getattr(video, "file_name", None)
-    if file_name:
-        suffix = Path(file_name).suffix.lower().lstrip(".")
-        if suffix:
-            return suffix
-
-    mime_type = (getattr(video, "mime_type", None) or "").lower()
-    if "quicktime" in mime_type:
-        return "mov"
-    if "webm" in mime_type:
-        return "webm"
-    return "mp4"
-
-
-def _build_timer_media_filename(
-    business_connection_id: str,
-    chat_id: int,
-    message_id: int,
-    media_type: str,
-    extension: str,
-) -> str:
-    safe_connection_id = "".join(
-        char if char.isalnum() or char in ("-", "_") else "_"
-        for char in business_connection_id
-    )
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    return (
-        f"{timestamp}_{safe_connection_id}_{chat_id}_{message_id}_"
-        f"{media_type}.{extension}"
-    )
 
 
 def _to_iso(value: datetime | None) -> str | None:
