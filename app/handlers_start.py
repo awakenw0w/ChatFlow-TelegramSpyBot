@@ -2,7 +2,7 @@ import logging
 
 from aiogram import F, Router
 from aiogram.filters import CommandStart
-from aiogram.types import CallbackQuery, FSInputFile, Message
+from aiogram.types import CallbackQuery, Message
 
 from app.config import Config
 from app.keyboards import DEMO_CALLBACK_DATA, build_start_keyboard
@@ -50,12 +50,6 @@ def _demo_text(bot_username: str) -> str:
 
 @router.message(CommandStart())
 async def handle_start(message: Message, config: Config) -> None:
-    if config.connect_banner_path.is_file():
-        try:
-            await message.answer_photo(FSInputFile(config.connect_banner_path))
-        except Exception:
-            logger.exception("Failed to send connect banner")
-
     await message.answer(
         _start_text(config.bot_username),
         reply_markup=build_start_keyboard(),

@@ -18,7 +18,6 @@ class Config:
     bot_token: str
     bot_username: str
     db_path: Path
-    connect_banner_path: Path
     log_level: str
 
 
@@ -40,9 +39,6 @@ def load_config() -> Config:
     bot_token = (os.getenv("BOT_TOKEN") or "").strip()
     bot_username = _clean_username(os.getenv("BOT_USERNAME"))
     db_path = Path(os.getenv("DB_PATH", "storage/bot.sqlite3"))
-    connect_banner_path = Path(
-        os.getenv("CONNECT_BANNER_PATH", "assets/connect_banner.png")
-    )
     log_level = (os.getenv("LOG_LEVEL") or "INFO").strip().upper()
 
     if not bot_token:
@@ -57,6 +53,5 @@ def load_config() -> Config:
         bot_token=bot_token,
         bot_username=bot_username,
         db_path=db_path,
-        connect_banner_path=connect_banner_path,
         log_level=log_level,
     )

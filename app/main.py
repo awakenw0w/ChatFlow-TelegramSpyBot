@@ -34,7 +34,6 @@ async def main() -> None:
         return
 
     config.db_path.parent.mkdir(parents=True, exist_ok=True)
-    config.connect_banner_path.parent.mkdir(parents=True, exist_ok=True)
 
     db = Database(config.db_path)
     await db.init()
